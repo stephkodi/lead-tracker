@@ -44,7 +44,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col bg-[#f2f2f7] dark:bg-[#07090e] text-slate-900 dark:text-slate-100 antialiased selection:bg-blue-500/20 selection:text-blue-600 dark:selection:text-blue-300 transition-colors duration-300">
+      <body className="min-h-full flex flex-col bg-[#f2f2f7] dark:bg-[#000000] text-black dark:text-white antialiased selection:bg-zinc-500/20 selection:text-black dark:selection:text-white transition-colors duration-250">
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

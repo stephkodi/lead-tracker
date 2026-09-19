@@ -131,16 +131,15 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-[#04060a] flex justify-center relative overflow-hidden transition-colors duration-300">
-      {/* iOS 26 Ambient Liquid Aurora Orbs for authentic glass refraction */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-        <div className="liquid-orb-1 absolute -top-24 -left-24 w-96 h-96 rounded-full bg-blue-500/20 dark:bg-blue-600/18 blur-[80px]" />
-        <div className="liquid-orb-2 absolute top-1/3 -right-28 w-96 h-96 rounded-full bg-purple-500/18 dark:bg-indigo-600/16 blur-[90px]" />
-        <div className="liquid-orb-3 absolute -bottom-24 left-1/4 w-80 h-80 rounded-full bg-teal-400/18 dark:bg-teal-500/14 blur-[75px]" />
+    <div className="min-h-screen bg-[#f2f2f7] dark:bg-[#000000] flex justify-center relative overflow-hidden transition-colors duration-250">
+      {/* Light mode subtle ambient glow (hidden in dark mode for pure pitch-black AMOLED) */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10 dark:hidden">
+        <div className="liquid-orb-1 absolute -top-24 -left-24 w-96 h-96 rounded-full bg-slate-300/30 blur-[80px]" />
+        <div className="liquid-orb-2 absolute top-1/3 -right-28 w-96 h-96 rounded-full bg-slate-200/40 blur-[90px]" />
       </div>
 
-      {/* Mobile-first frame container with liquid glass boundaries */}
-      <main className="w-full max-w-md min-h-screen bg-[#f2f2f7]/85 dark:bg-[#07090e]/85 backdrop-blur-xl flex flex-col relative shadow-[0_0_80px_rgba(0,0,0,0.06)] dark:shadow-[0_0_100px_rgba(0,0,0,0.7)] border-x border-white/60 dark:border-white/10 transition-colors duration-300">
+      {/* Mobile-first classic Apple frame container */}
+      <main className="w-full max-w-md min-h-screen bg-[#f2f2f7] dark:bg-[#000000] flex flex-col relative border-x border-black/5 dark:border-white/10 transition-colors duration-250">
         {/* Top Header */}
         <Header
           settings={settings}

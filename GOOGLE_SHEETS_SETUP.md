@@ -21,12 +21,13 @@ This guide explains how to connect your **Service Lead Tracker** PWA directly to
 ```javascript
 /**
  * Service Lead Tracker - Google Apps Script Webhook
- * Receives JSON payloads to append leads or update lead status in real-time.
+ * Receives JSON payloads:
+ * - Appends new leads when action === "create"
+ * - Strictly updates status & vendor in-place when action === "update_status" (NEVER appends new row)
  */
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
-  // Wait up to 30 seconds for other concurrent requests
   lock.tryLock(30000);
 
   try {
@@ -49,7 +50,7 @@ function doPost(e) {
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(headers);
       var headerRange = sheet.getRange(1, 1, 1, headers.length);
-      headerRange.setBackground("#0F172A");
+      headerRange.setBackground("#000000");
       headerRange.setFontColor("#FFFFFF");
       headerRange.setFontWeight("bold");
       sheet.setFrozenRows(1);
@@ -64,21 +65,47 @@ function doPost(e) {
 
     var action = data.action || "create";
 
-    // 1. UPDATE EXISTING LEAD STATUS
+    // 1. UPDATE EXISTING LEAD STATUS ONLY (NEVER APPENDS A NEW ROW)
     if (action === "update_status") {
-      var leadId = data.leadId;
-      var newStatus = data.status;
+      var leadId = data.leadId ? String(data.leadId).trim() : "";
+      var newStatus = data.status || "";
+      var cleanPhone = data.phone ? String(data.phone).replace(/\D/g, "") : "";
+
+      var lastRow = sheet.getLastRow();
+      if (lastRow <= 1) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "not_found",
+          message: "Sheet contains no lead rows to update"
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
       var values = sheet.getDataRange().getValues();
-      var idCol = values[0].indexOf("Lead ID");
-      var phoneCol = values[0].indexOf("Phone");
-      var statusCol = values[0].indexOf("Status");
-      var vendorCol = values[0].indexOf("Assigned Vendor");
+      var headerRow = values[0];
+
+      // Locate column indexes dynamically by header name
+      var idCol = -1, phoneCol = -1, statusCol = -1, vendorCol = -1;
+      for (var c = 0; c < headerRow.length; c++) {
+        var h = String(headerRow[c]).toLowerCase().trim();
+        if (h === "lead id" || h === "id") idCol = c;
+        else if (h.indexOf("phone") !== -1) phoneCol = c;
+        else if (h === "status") statusCol = c;
+        else if (h.indexOf("vendor") !== -1) vendorCol = c;
+      }
+
+      // Default fallback column indexes
+      if (idCol === -1) idCol = 0;       // Col A
+      if (phoneCol === -1) phoneCol = 4; // Col E
+      if (statusCol === -1) statusCol = 9; // Col J
+      if (vendorCol === -1) vendorCol = 10; // Col K
 
       for (var i = 1; i < values.length; i++) {
-        var matchById = (idCol !== -1 && String(values[i][idCol]) === String(leadId));
-        var matchByPhone = (phoneCol !== -1 && data.phone && String(values[i][phoneCol]) === String(data.phone));
+        var rowId = String(values[i][idCol]).trim();
+        var rowPhone = String(values[i][phoneCol]).replace(/\D/g, "");
 
-        if (matchById || matchByPhone) {
+        var matchesId = leadId && rowId && (rowId === leadId || rowId.indexOf(leadId) !== -1 || leadId.indexOf(rowId) !== -1);
+        var matchesPhone = cleanPhone && rowPhone && (rowPhone === cleanPhone || rowPhone.slice(-10) === cleanPhone.slice(-10));
+
+        if (matchesId || matchesPhone) {
           if (statusCol !== -1) {
             sheet.getRange(i + 1, statusCol + 1).setValue(newStatus);
           }
@@ -94,34 +121,42 @@ function doPost(e) {
         }
       }
 
+      // Explicitly return without creating a new row
       return ContentService.createTextOutput(JSON.stringify({
         status: "not_found",
-        message: "Lead ID not found to update"
+        message: "No matching lead found. No new row was created."
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // 2. APPEND NEW LEAD
-    var newRow = [
-      data.leadId || ("lead-" + Date.now()),
-      data.timestamp || new Date().toISOString(),
-      data.date || "",
-      data.customerName || "",
-      data.phone || "",
-      data.email || "",
-      data.location || "",
-      data.services || "",
-      data.requirements || "",
-      data.status || "Captured",
-      data.vendorAssigned || "Unassigned"
-    ];
+    // 2. APPEND NEW LEAD (ONLY WHEN ACTION IS "CREATE")
+    if (action === "create") {
+      var newRow = [
+        data.leadId || ("lead-" + Date.now()),
+        data.timestamp || new Date().toISOString(),
+        data.date || "",
+        data.customerName || "",
+        data.phone || "",
+        data.email || "",
+        data.location || "",
+        data.services || "",
+        data.requirements || "",
+        data.status || "Captured",
+        data.vendorAssigned || "Unassigned"
+      ];
 
-    sheet.appendRow(newRow);
+      sheet.appendRow(newRow);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        action: "create",
+        message: "Lead successfully logged",
+        row: sheet.getLastRow()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
 
     return ContentService.createTextOutput(JSON.stringify({
-      status: "success",
-      action: "create",
-      message: "Lead successfully logged",
-      row: sheet.getLastRow()
+      status: "invalid_action",
+      message: "Unrecognized action: " + action
     })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {

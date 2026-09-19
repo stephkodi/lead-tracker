@@ -4,130 +4,131 @@
 
 :root {
   --background: #f2f2f7;
-  --foreground: #1c1c1e;
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-border: rgba(255, 255, 255, 0.75);
-  --glass-border-subtle: rgba(0, 0, 0, 0.06);
-  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.05) 100%);
-  --glass-specular: inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.9), 0 8px 32px -4px rgba(31, 38, 135, 0.07);
-  --glass-input-bg: rgba(255, 255, 255, 0.65);
-  --glass-card: rgba(255, 255, 255, 0.75);
+  --foreground: #000000;
+  --apple-grouped-bg: #f2f2f7;
+  --apple-card: #ffffff;
+  --apple-card-border: rgba(0, 0, 0, 0.08);
+  --apple-input-bg: #f7f7f9;
+  --apple-input-border: rgba(0, 0, 0, 0.12);
+  --apple-tertiary: #e5e5ea;
+  --apple-hairline: rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-specular: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
 .dark {
-  --background: #07090e;
-  --foreground: #f4f4f6;
-  --glass-bg: rgba(18, 22, 34, 0.68);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --glass-border-subtle: rgba(255, 255, 255, 0.06);
-  --glass-sheen: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 100%);
-  --glass-specular: inset 0 1px 1px 0 rgba(255, 255, 255, 0.22), 0 16px 45px -8px rgba(0, 0, 0, 0.65);
-  --glass-input-bg: rgba(25, 30, 46, 0.55);
-  --glass-card: rgba(18, 22, 34, 0.7);
+  --background: #000000;
+  --foreground: #ffffff;
+  --apple-grouped-bg: #000000;
+  --apple-card: #1c1c1e;
+  --apple-card-border: rgba(255, 255, 255, 0.1);
+  --apple-input-bg: #2c2c2e;
+  --apple-input-border: rgba(255, 255, 255, 0.14);
+  --apple-tertiary: #3a3a3c;
+  --apple-hairline: rgba(255, 255, 255, 0.08);
+  --glass-bg: rgba(28, 28, 30, 0.92);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-specular: 0 4px 20px rgba(0, 0, 0, 0.8);
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "Inter", -apple-system-subheadline, system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", -apple-system-subheadline, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
-  transition: background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* iOS 26 Liquid Glass Utilities */
-.liquid-glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-specular);
-}
-
-.liquid-glass-card {
+/* Classic Apple Grouped Card */
+.liquid-glass-card,
+.apple-card {
   position: relative;
-  background: var(--glass-card);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-specular);
-  border-radius: 1.5rem;
+  background: var(--apple-card);
+  border: 1px solid var(--apple-card-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  border-radius: 1.25rem;
   overflow: hidden;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
-/* Liquid specular refraction top highlight */
-.liquid-glass-card::before {
+/* Classic Apple Hairline Top Refraction Line */
+.dark .liquid-glass-card::before,
+.dark .apple-card::before {
   content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.8) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.18) 50%, transparent 100%);
   pointer-events: none;
 }
 
-.dark .liquid-glass-card::before {
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.28) 50%, transparent 100%);
-}
-
-.liquid-glass-input {
-  background: var(--glass-input-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+/* Classic Apple Frosted Glass / Dock */
+.liquid-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--glass-border);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.liquid-glass-input:focus {
+/* Classic Apple Inset Input */
+.liquid-glass-input,
+.apple-input {
+  background: var(--apple-input-bg);
+  border: 1px solid var(--apple-input-border);
+  color: inherit;
+  transition: all 0.15s ease;
+}
+
+.liquid-glass-input:focus,
+.apple-input:focus {
   outline: none;
-  border-color: rgba(59, 130, 246, 0.7);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
 }
 
-/* Ambient Liquid Glowing Orbs */
-@keyframes floatOrb {
-  0%, 100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(30px, -25px) scale(1.08);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.95);
-  }
+.dark .liquid-glass-input:focus,
+.dark .apple-input:focus {
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
 }
 
-.liquid-orb-1 {
-  animation: floatOrb 18s ease-in-out infinite;
+/* Classic Apple Monochrome Button */
+.apple-btn-primary {
+  background-color: #000000;
+  color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.liquid-orb-2 {
-  animation: floatOrb 22s ease-in-out infinite reverse;
+.dark .apple-btn-primary {
+  background-color: #ffffff;
+  color: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.liquid-orb-3 {
-  animation: floatOrb 15s ease-in-out infinite 3s;
+.apple-btn-primary:active {
+  transform: scale(0.98);
 }
 
 /* Custom smooth iOS scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(140, 140, 160, 0.25);
+  background: rgba(140, 140, 160, 0.2);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(140, 140, 160, 0.45);
+  background: rgba(140, 140, 160, 0.4);
 }
 
 /* Safe area support for notch and home indicator */

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { ServiceCategory, ServiceLead, AppSettings } from '@/types';
 import { saveStoredLead } from '@/lib/storage';
+import { triggerHaptic } from '@/utils/haptics';
 
 interface LeadCaptureFormProps {
   settings: AppSettings;
@@ -31,52 +32,13 @@ interface LeadCaptureFormProps {
 const AVAILABLE_SERVICES: {
   name: ServiceCategory;
   icon: React.ComponentType<{ className?: string }>;
-  color: string;
-  activeBg: string;
-  activeBorder: string;
 }[] = [
-  {
-    name: 'General',
-    icon: Wrench,
-    color: 'text-slate-600 dark:text-slate-300',
-    activeBg: 'bg-slate-800 dark:bg-slate-700 text-white',
-    activeBorder: 'border-slate-800 dark:border-slate-600',
-  },
-  {
-    name: 'Electrical',
-    icon: Zap,
-    color: 'text-amber-500',
-    activeBg: 'bg-amber-500 text-white',
-    activeBorder: 'border-amber-500',
-  },
-  {
-    name: 'Plumbing',
-    icon: Droplets,
-    color: 'text-blue-500',
-    activeBg: 'bg-blue-600 text-white',
-    activeBorder: 'border-blue-600',
-  },
-  {
-    name: 'Carpentry',
-    icon: Hammer,
-    color: 'text-orange-500',
-    activeBg: 'bg-orange-600 text-white',
-    activeBorder: 'border-orange-600',
-  },
-  {
-    name: 'Painting',
-    icon: Paintbrush,
-    color: 'text-purple-500',
-    activeBg: 'bg-purple-600 text-white',
-    activeBorder: 'border-purple-600',
-  },
-  {
-    name: 'Other',
-    icon: Sparkles,
-    color: 'text-emerald-500',
-    activeBg: 'bg-emerald-600 text-white',
-    activeBorder: 'border-emerald-600',
-  },
+  { name: 'General', icon: Wrench },
+  { name: 'Electrical', icon: Zap },
+  { name: 'Plumbing', icon: Droplets },
+  { name: 'Carpentry', icon: Hammer },
+  { name: 'Painting', icon: Paintbrush },
+  { name: 'Other', icon: Sparkles },
 ];
 
 export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
@@ -99,6 +61,7 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
   const isPhoneValid = phone.trim().replace(/[^0-9]/g, '').length >= 7;
 
   const toggleService = (service: ServiceCategory) => {
+    triggerHaptic('light');
     setSelectedServices((prev) => {
       if (prev.includes(service)) {
         if (prev.length === 1) return prev;
@@ -110,6 +73,7 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
   };
 
   const handleReset = () => {
+    triggerHaptic('light');
     setDate(getTodayString());
     setCustomerName('');
     setPhone('');
@@ -125,21 +89,25 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
     setErrorMessage(null);
 
     if (!customerName.trim()) {
+      triggerHaptic('warning');
       setErrorMessage('Please enter the customer or company name.');
       return;
     }
 
     if (!phone.trim() || !isPhoneValid) {
+      triggerHaptic('warning');
       setErrorMessage('Please enter a valid contact phone number with area code.');
       return;
     }
 
     if (!location.trim()) {
+      triggerHaptic('warning');
       setErrorMessage('Please enter the service location or property address.');
       return;
     }
 
     if (selectedServices.length === 0) {
+      triggerHaptic('warning');
       setErrorMessage('Please select at least one required service category.');
       return;
     }
@@ -167,6 +135,7 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          action: 'create',
           ...newLead,
           googleScriptUrl: settings.googleScriptUrl || undefined,
         }),
@@ -179,10 +148,12 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
       }
 
       saveStoredLead(newLead);
+      triggerHaptic('success');
       onLeadCreated(newLead);
       handleReset();
     } catch {
       saveStoredLead(newLead);
+      triggerHaptic('success');
       onLeadCreated(newLead);
       handleReset();
     } finally {
@@ -191,36 +162,38 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
   };
 
   return (
-    <div className="w-full pb-24">
-      {/* Intro Subtitle */}
-      <div className="px-1 pt-1 pb-3 flex items-center justify-between">
+    <div className="w-full pb-24 space-y-4">
+      {/* Intro Header */}
+      <div className="px-1 pt-1 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Capture Lead</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-normal">
+          <h2 className="text-xl font-bold text-black dark:text-white tracking-tight">
+            Capture Lead
+          </h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 font-normal">
             Log request and dispatch immediately to vendor
           </p>
         </div>
         <button
           type="button"
           onClick={handleReset}
-          className="text-xs text-blue-600 dark:text-blue-400 font-medium px-3 py-1 rounded-full liquid-glass hover:bg-slate-200/50 dark:hover:bg-white/10 transition-colors active:scale-95"
+          className="text-xs text-zinc-600 dark:text-zinc-300 font-medium px-3 py-1 rounded-full bg-zinc-200/70 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-colors active:scale-95 border border-black/5 dark:border-white/10"
         >
           Reset
         </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* SECTION 1: CUSTOMER DETAILS */}
-        <div className="liquid-glass-card p-4 space-y-3.5">
-          <div className="flex items-center space-x-1.5 text-xs font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider px-1">
+        {/* SECTION 1: CUSTOMER DETAILS (Classic Apple Inset Grouped) */}
+        <div className="bg-white dark:bg-[#1C1C1E] border border-black/5 dark:border-white/10 rounded-2xl p-4 space-y-3.5 shadow-xs transition-colors duration-250">
+          <div className="flex items-center space-x-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider px-0.5">
             <User className="w-3.5 h-3.5" />
             <span>Customer Details</span>
           </div>
 
           {/* Date Input */}
           <div>
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Date of Service Request <span className="text-rose-500">*</span>
+            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+              Date of Service Request <span className="text-zinc-400 dark:text-zinc-500">*</span>
             </label>
             <div className="relative">
               <input
@@ -228,16 +201,16 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full liquid-glass-input rounded-2xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white font-medium"
+                className="w-full bg-zinc-100/80 dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-black dark:text-white font-medium focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-colors"
               />
-              <Calendar className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+              <Calendar className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute right-3.5 top-3 pointer-events-none" />
             </div>
           </div>
 
           {/* Customer Name Input */}
           <div>
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Customer / Company Name <span className="text-rose-500">*</span>
+            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+              Customer / Company Name <span className="text-zinc-400 dark:text-zinc-500">*</span>
             </label>
             <div className="relative">
               <input
@@ -246,22 +219,22 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
                 placeholder="e.g., Sarah Jenkins or Acme Corp"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full liquid-glass-input rounded-2xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400"
+                className="w-full bg-zinc-100/80 dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-black dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-colors"
               />
-              <User className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+              <User className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute right-3.5 top-3 pointer-events-none" />
             </div>
           </div>
 
           {/* Phone Number Input */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                Phone Number <span className="text-rose-500">*</span>
+              <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                Phone Number <span className="text-zinc-400 dark:text-zinc-500">*</span>
               </label>
               {phone && (
                 <span
                   className={`text-[11px] font-medium ${
-                    isPhoneValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+                    isPhoneValid ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400 dark:text-zinc-500'
                   }`}
                 >
                   {isPhoneValid ? '✓ Valid format' : 'Enter complete number'}
@@ -275,18 +248,16 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
                 placeholder="e.g., +1 555-019-2834"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className={`w-full liquid-glass-input rounded-2xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 ${
-                  phone && !isPhoneValid ? 'border-amber-400 dark:border-amber-500' : ''
-                }`}
+                className="w-full bg-zinc-100/80 dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-black dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-colors"
               />
-              <Phone className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+              <Phone className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute right-3.5 top-3 pointer-events-none" />
             </div>
           </div>
 
           {/* Email Input (Optional) */}
           <div>
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Email Address <span className="text-slate-400 font-normal">(Optional)</span>
+            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+              Email Address <span className="text-zinc-400 dark:text-zinc-500 font-normal">(Optional)</span>
             </label>
             <div className="relative">
               <input
@@ -294,27 +265,27 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
                 placeholder="customer@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full liquid-glass-input rounded-2xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400"
+                className="w-full bg-zinc-100/80 dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-black dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-colors"
               />
-              <Mail className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+              <Mail className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute right-3.5 top-3 pointer-events-none" />
             </div>
           </div>
         </div>
 
         {/* SECTION 2: SERVICE CATEGORIES & SCOPE */}
-        <div className="liquid-glass-card p-4 space-y-3.5">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider px-1">
+        <div className="bg-white dark:bg-[#1C1C1E] border border-black/5 dark:border-white/10 rounded-2xl p-4 space-y-3.5 shadow-xs transition-colors duration-250">
+          <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider px-0.5">
             <div className="flex items-center space-x-1.5">
               <Wrench className="w-3.5 h-3.5" />
               <span>Services Required</span>
-              <span className="text-rose-500">*</span>
+              <span className="text-zinc-400 dark:text-zinc-500">*</span>
             </div>
-            <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium normal-case">
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium normal-case">
               {selectedServices.length} selected
             </span>
           </div>
 
-          {/* Multi-Select Pills */}
+          {/* Classic Apple Monochrome Multi-Select Grid */}
           <div className="grid grid-cols-3 gap-2 pt-1">
             {AVAILABLE_SERVICES.map((srv) => {
               const Icon = srv.icon;
@@ -326,26 +297,18 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
                   type="button"
                   whileTap={{ scale: 0.94 }}
                   onClick={() => toggleService(srv.name)}
-                  className={`relative flex flex-col items-center justify-center p-2.5 rounded-2xl border transition-all duration-150 select-none ${
+                  className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl border transition-all duration-150 select-none ${
                     isSelected
-                      ? `${srv.activeBg} ${srv.activeBorder} shadow-sm font-semibold`
-                      : 'liquid-glass text-slate-700 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-white/10 font-medium border-white/60 dark:border-white/10'
+                      ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white font-semibold shadow-xs'
+                      : 'bg-zinc-100/80 dark:bg-[#2C2C2E] text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-[#38383A] font-medium border-black/5 dark:border-white/10'
                   }`}
                 >
                   <Icon
                     className={`w-5 h-5 mb-1 transition-transform duration-150 ${
-                      isSelected ? 'scale-110 text-white' : srv.color
+                      isSelected ? 'scale-105 stroke-[2.2]' : 'text-zinc-500 dark:text-zinc-400 stroke-[1.8]'
                     }`}
                   />
                   <span className="text-xs leading-tight tracking-tight">{srv.name}</span>
-
-                  {isSelected && (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-white shadow-xs"
-                    />
-                  )}
                 </motion.button>
               );
             })}
@@ -353,8 +316,8 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
 
           {/* Location / Service Address */}
           <div className="pt-2">
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-              Location / Service Address <span className="text-rose-500">*</span>
+            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+              Location / Service Address <span className="text-zinc-400 dark:text-zinc-500">*</span>
             </label>
             <div className="relative">
               <textarea
@@ -363,15 +326,15 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
                 placeholder="e.g., 742 Evergreen Terrace, Apt 4B, Springfield"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full liquid-glass-input rounded-2xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 resize-none"
+                className="w-full bg-zinc-100/80 dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-black dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 resize-none focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-colors"
               />
-              <MapPin className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+              <MapPin className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute right-3.5 top-3 pointer-events-none" />
             </div>
           </div>
 
           {/* Detailed Requirements Textarea */}
           <div>
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
               Detailed Requirements & Notes
             </label>
             <div className="relative">
@@ -380,9 +343,9 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
                 placeholder="Describe the issue, work scope, urgency, gate codes, or special instructions..."
                 value={requirements}
                 onChange={(e) => setRequirements(e.target.value)}
-                className="w-full liquid-glass-input rounded-2xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400"
+                className="w-full bg-zinc-100/80 dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-black dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-colors"
               />
-              <FileText className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+              <FileText className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute right-3.5 top-3 pointer-events-none" />
             </div>
           </div>
         </div>
@@ -394,24 +357,21 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="bg-rose-500/15 border border-rose-500/30 rounded-2xl p-3 flex items-start space-x-2 text-xs text-rose-700 dark:text-rose-300"
+              className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-800 rounded-2xl p-3 flex items-start space-x-2 text-xs text-zinc-900 dark:text-zinc-100"
             >
-              <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 text-zinc-700 dark:text-zinc-300 shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Primary CTA Button: iOS Liquid Gradient Button */}
+        {/* Primary CTA Button: Classic Apple Monochrome Action Button */}
         <motion.button
           type="submit"
           disabled={isSubmitting}
-          whileTap={{ scale: 0.97 }}
-          className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:brightness-110 active:brightness-95 text-white font-semibold text-base py-3.5 px-5 rounded-2xl shadow-lg shadow-blue-500/30 dark:shadow-blue-500/40 flex items-center justify-center space-x-2 transition-all disabled:opacity-70 disabled:pointer-events-none relative overflow-hidden"
+          whileTap={{ scale: 0.98 }}
+          className="w-full bg-black dark:bg-white hover:opacity-90 active:scale-[0.98] text-white dark:text-black font-semibold text-base py-3.5 px-5 rounded-2xl shadow-xs flex items-center justify-center space-x-2 transition-all disabled:opacity-50 disabled:pointer-events-none select-none"
         >
-          {/* Liquid highlight bar */}
-          <div className="absolute top-0 left-0 right-0 h-px bg-white/40 pointer-events-none" />
-
           {isSubmitting ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -426,7 +386,7 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({
         </motion.button>
 
         {/* Helper Footer Note */}
-        <p className="text-[11px] text-center text-slate-400 dark:text-slate-500 pt-1">
+        <p className="text-[11px] text-center text-zinc-400 dark:text-zinc-500 pt-1">
           Automatically logs to Google Sheets and opens WhatsApp dispatch
         </p>
       </form>

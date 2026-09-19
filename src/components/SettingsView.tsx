@@ -4,30 +4,43 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Settings,
   FileSpreadsheet,
   Link2,
-  ExternalLink,
-  CheckCircle2,
-  AlertCircle,
-  RefreshCw,
-  Copy,
   Check,
-  HelpCircle,
+  RefreshCw,
+  ExternalLink,
   RotateCcw,
+  Copy,
+  AlertCircle,
+  CheckCircle2,
+  HelpCircle,
   Sun,
   Moon,
   Laptop,
   Globe,
+  Settings,
 } from 'lucide-react';
 import { AppSettings } from '@/types';
-import { saveStoredSettings, INITIAL_VENDORS, saveStoredVendors } from '@/lib/storage';
+import { saveStoredSettings, saveStoredVendors, INITIAL_VENDORS } from '@/lib/storage';
 import { copyToClipboard } from '@/lib/whatsapp';
 import { useTheme, Theme } from '@/context/ThemeContext';
+import { triggerHaptic } from '@/utils/haptics';
 
-const GithubIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className={className}>
-    <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+// Custom inline SVG for GitHub icon
+const GithubIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    viewBox="0 0 24 24"
+    width="24"
+    height="24"
+    stroke="currentColor"
+    strokeWidth="2"
+    fill="none"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+    <path d="M9 18c-4.51 2-5-2-7-2" />
   </svg>
 );
 
@@ -44,9 +57,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const { theme, setTheme } = useTheme();
   const [scriptUrl, setScriptUrl] = useState<string>(settings.googleScriptUrl || '');
-  const [sheetUrl, setSheetUrl] = useState<string>(
-    settings.googleSheetViewUrl || 'https://docs.google.com/spreadsheets'
-  );
+  const [sheetUrl, setSheetUrl] = useState<string>(settings.googleSheetViewUrl || '');
   const [companyName, setCompanyName] = useState<string>(settings.companyName || '');
 
   const [isTesting, setIsTesting] = useState<boolean>(false);
@@ -58,60 +69,155 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showCodeGuide, setShowCodeGuide] = useState<boolean>(false);
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
 
+  // Hardened Google Apps Script Webhook Snippet (Never creates duplicate rows on status update)
   const sampleCodeSnippet = `function doPost(e) {
   var lock = LockService.getScriptLock();
   lock.tryLock(30000);
+
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    var headers = ["Lead ID", "Timestamp", "Date", "Customer Name", "Phone", "Email", "Location", "Services", "Requirements", "Status", "Assigned Vendor"];
+    var headers = [
+      "Lead ID",
+      "Timestamp",
+      "Date",
+      "Customer Name",
+      "Phone",
+      "Email",
+      "Location",
+      "Services",
+      "Requirements",
+      "Status",
+      "Assigned Vendor"
+    ];
+
+    // Ensure header row exists if sheet is empty
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(headers);
+      var headerRange = sheet.getRange(1, 1, 1, headers.length);
+      headerRange.setBackground("#000000");
+      headerRange.setFontColor("#FFFFFF");
+      headerRange.setFontWeight("bold");
+      sheet.setFrozenRows(1);
     }
-    var data = JSON.parse(e.postData.contents);
+
+    var data = {};
+    if (e.postData && e.postData.contents) {
+      data = JSON.parse(e.postData.contents);
+    } else {
+      data = e.parameter || {};
+    }
+
     var action = data.action || "create";
 
-    // 1. UPDATE EXISTING LEAD STATUS
+    // 1. UPDATE EXISTING LEAD STATUS (NEVER APPENDS A NEW ROW)
     if (action === "update_status") {
-      var leadId = data.leadId;
-      var newStatus = data.status;
+      var leadId = data.leadId ? String(data.leadId).trim() : "";
+      var newStatus = data.status || "";
+      var cleanPhone = data.phone ? String(data.phone).replace(/\\D/g, "") : "";
+
+      var lastRow = sheet.getLastRow();
+      if (lastRow <= 1) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "not_found",
+          message: "Sheet contains no lead rows to update"
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
       var values = sheet.getDataRange().getValues();
-      var idCol = values[0].indexOf("Lead ID");
-      var phoneCol = values[0].indexOf("Phone");
-      var statusCol = values[0].indexOf("Status");
-      var vendorCol = values[0].indexOf("Assigned Vendor");
+      var headerRow = values[0];
+
+      var idCol = -1, phoneCol = -1, statusCol = -1, vendorCol = -1;
+      for (var c = 0; c < headerRow.length; c++) {
+        var h = String(headerRow[c]).toLowerCase().trim();
+        if (h === "lead id" || h === "id") idCol = c;
+        else if (h.indexOf("phone") !== -1) phoneCol = c;
+        else if (h === "status") statusCol = c;
+        else if (h.indexOf("vendor") !== -1) vendorCol = c;
+      }
+
+      if (idCol === -1) idCol = 0;       // Default Column A
+      if (phoneCol === -1) phoneCol = 4; // Default Column E
+      if (statusCol === -1) statusCol = 9; // Default Column J
+      if (vendorCol === -1) vendorCol = 10; // Default Column K
+
       for (var i = 1; i < values.length; i++) {
-        var matchById = (idCol !== -1 && String(values[i][idCol]) === String(leadId));
-        var matchByPhone = (phoneCol !== -1 && data.phone && String(values[i][phoneCol]) === String(data.phone));
-        if (matchById || matchByPhone) {
-          if (statusCol !== -1) sheet.getRange(i + 1, statusCol + 1).setValue(newStatus);
-          if (data.vendorAssigned && vendorCol !== -1) sheet.getRange(i + 1, vendorCol + 1).setValue(data.vendorAssigned);
-          return ContentService.createTextOutput(JSON.stringify({ status: "success", updated: true, newStatus: newStatus })).setMimeType(ContentService.MimeType.JSON);
+        var rowId = String(values[i][idCol]).trim();
+        var rowPhone = String(values[i][phoneCol]).replace(/\\D/g, "");
+
+        var matchesId = leadId && rowId && (rowId === leadId || rowId.indexOf(leadId) !== -1 || leadId.indexOf(rowId) !== -1);
+        var matchesPhone = cleanPhone && rowPhone && (rowPhone === cleanPhone || rowPhone.slice(-10) === cleanPhone.slice(-10));
+
+        if (matchesId || matchesPhone) {
+          if (statusCol !== -1) {
+            sheet.getRange(i + 1, statusCol + 1).setValue(newStatus);
+          }
+          if (data.vendorAssigned && vendorCol !== -1) {
+            sheet.getRange(i + 1, vendorCol + 1).setValue(data.vendorAssigned);
+          }
+          return ContentService.createTextOutput(JSON.stringify({
+            status: "success",
+            action: "update_status",
+            updatedRow: i + 1,
+            newStatus: newStatus
+          })).setMimeType(ContentService.MimeType.JSON);
         }
       }
+
+      // Explicitly return without creating a new row
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "not_found",
+        message: "No matching lead found. No new row was created."
+      })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // 2. APPEND NEW LEAD
-    sheet.appendRow([
-      data.leadId || ("lead-" + Date.now()),
-      data.timestamp || new Date().toISOString(),
-      data.date,
-      data.customerName,
-      data.phone,
-      data.email || "",
-      data.location || "",
-      data.services || "",
-      data.requirements || "",
-      data.status || "Captured",
-      data.vendorAssigned || "Unassigned"
-    ]);
-    return ContentService.createTextOutput(JSON.stringify({ status: "success" })).setMimeType(ContentService.MimeType.JSON);
+    // 2. APPEND NEW LEAD (ONLY WHEN ACTION IS "CREATE")
+    if (action === "create") {
+      sheet.appendRow([
+        data.leadId || ("lead-" + Date.now()),
+        data.timestamp || new Date().toISOString(),
+        data.date || "",
+        data.customerName || "",
+        data.phone || "",
+        data.email || "",
+        data.location || "",
+        data.services || "",
+        data.requirements || "",
+        data.status || "Captured",
+        data.vendorAssigned || "Unassigned"
+      ]);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        action: "create",
+        row: sheet.getLastRow()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "invalid_action",
+      message: "Unrecognized action: " + action
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+
   } finally {
     lock.releaseLock();
   }
+}
+
+function doGet(e) {
+  return ContentService.createTextOutput(JSON.stringify({
+    status: "active",
+    message: "Service Lead Tracker Webhook is ready"
+  })).setMimeType(ContentService.MimeType.JSON);
 }`;
 
   const handleSave = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    triggerHaptic('success');
     const updated: AppSettings = {
       ...settings,
       googleScriptUrl: scriptUrl.trim(),
@@ -126,6 +232,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleTestWebhook = async () => {
     if (!scriptUrl.trim()) {
+      triggerHaptic('warning');
       setTestResult({
         success: false,
         message: 'Please paste a Google Apps Script Web App URL first.',
@@ -141,6 +248,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'create',
           date: new Date().toISOString().split('T')[0],
           customerName: 'System Diagnostic Test',
           phone: '+1 000-000-0000',
@@ -154,22 +262,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       const data = await res.json();
       if (res.ok && data.syncedToSheet) {
+        triggerHaptic('success');
         setTestResult({
           success: true,
-          message: 'Connection verified! Test row successfully written to Google Sheets.',
+          message: 'Connection verified! Test lead written to Google Sheets.',
         });
       } else if (res.ok && !data.syncedToSheet) {
+        triggerHaptic('warning');
         setTestResult({
           success: false,
-          message: data.warning || 'Script reached but did not return confirmation. Check permissions.',
+          message: data.warning || 'Script reached but did not confirm write. Check Google Apps Script permissions.',
         });
       } else {
+        triggerHaptic('warning');
         setTestResult({
           success: false,
-          message: data.error || 'Failed to communicate with the Web App URL.',
+          message: data.error || 'Failed to communicate with Web App URL.',
         });
       }
     } catch (err: unknown) {
+      triggerHaptic('warning');
       setTestResult({
         success: false,
         message: err instanceof Error ? err.message : 'Network test error',
@@ -180,6 +292,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleCopyCode = async () => {
+    triggerHaptic('light');
     const ok = await copyToClipboard(sampleCodeSnippet);
     if (ok) {
       setCopiedCode(true);
@@ -188,10 +301,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleResetSampleData = () => {
+    triggerHaptic('warning');
     if (confirm('Reset vendors to original 5 default service partners?')) {
       saveStoredVendors(INITIAL_VENDORS);
       onReloadVendors();
-      alert('Sample vendors re-seeded successfully!');
+      alert('Default vendors restored!');
     }
   };
 
@@ -199,24 +313,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     <div className="w-full pb-24 space-y-4">
       {/* Title */}
       <div className="px-1 pt-1">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Configuration</h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <h2 className="text-xl font-bold text-black dark:text-white tracking-tight">Configuration</h2>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
           Appearance, Google Sheets connection, and hosting setup
         </p>
       </div>
 
       <form onSubmit={handleSave} className="space-y-3.5">
-        {/* APPEARANCE / THEME CARD */}
-        <div className="liquid-glass-card p-4 space-y-3">
-          <div className="flex items-center space-x-2 text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
-            <Sun className="w-4 h-4 text-amber-500" />
+        {/* APPEARANCE / THEME CARD (Classic Apple Inset Grouped) */}
+        <div className="bg-white dark:bg-[#1C1C1E] border border-black/5 dark:border-white/10 rounded-2xl p-4 space-y-3 shadow-xs transition-colors duration-250">
+          <div className="flex items-center space-x-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">
+            <Sun className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
             <span>Appearance & Theme</span>
           </div>
 
           <div className="grid grid-cols-3 gap-2 pt-0.5">
             {[
-              { id: 'light', label: 'Light', icon: Sun, desc: 'Crisp Glass' },
-              { id: 'dark', label: 'Dark', icon: Moon, desc: 'Obsidian' },
+              { id: 'light', label: 'Light', icon: Sun, desc: 'Classic Light' },
+              { id: 'dark', label: 'Dark', icon: Moon, desc: 'AMOLED Black' },
               { id: 'system', label: 'System', icon: Laptop, desc: 'Automatic' },
             ].map((item) => {
               const Icon = item.icon;
@@ -226,23 +340,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setTheme(item.id as Theme)}
-                  className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border transition-all duration-150 select-none ${
+                  onClick={() => {
+                    triggerHaptic('selection');
+                    setTheme(item.id as Theme);
+                  }}
+                  className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-150 select-none ${
                     isSelected
-                      ? 'bg-blue-500/15 border-blue-500/40 text-blue-600 dark:text-blue-400 shadow-xs font-semibold'
-                      : 'liquid-glass text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-white/10 font-medium border-white/50 dark:border-white/10'
+                      ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white font-semibold shadow-xs'
+                      : 'bg-zinc-100/80 dark:bg-[#2C2C2E] text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-[#38383A] font-medium border-black/5 dark:border-white/10'
                   }`}
                 >
-                  <Icon className={`w-5 h-5 mb-1 ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} />
+                  <Icon className={`w-5 h-5 mb-1 ${isSelected ? 'stroke-[2.2]' : 'text-zinc-500 dark:text-zinc-400 stroke-[1.8]'}`} />
                   <span className="text-xs font-medium">{item.label}</span>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500">{item.desc}</span>
-
-                  {isSelected && (
-                    <motion.div
-                      layoutId="themeSelectedDot"
-                      className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500 shadow-xs"
-                    />
-                  )}
+                  <span className="text-[10px] opacity-70">{item.desc}</span>
                 </button>
               );
             })}
@@ -250,16 +360,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* GOOGLE SHEETS WEBHOOK CARD */}
-        <div className="liquid-glass-card p-4 space-y-3">
+        <div className="bg-white dark:bg-[#1C1C1E] border border-black/5 dark:border-white/10 rounded-2xl p-4 space-y-3 shadow-xs transition-colors duration-250">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
-              <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+            <div className="flex items-center space-x-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">
+              <FileSpreadsheet className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
               <span>Google Sheets Integration</span>
             </div>
             <button
               type="button"
-              onClick={() => setShowCodeGuide(!showCodeGuide)}
-              className="text-[11px] text-blue-600 dark:text-blue-400 font-medium hover:underline flex items-center space-x-1"
+              onClick={() => {
+                triggerHaptic('light');
+                setShowCodeGuide(!showCodeGuide);
+              }}
+              className="text-[11px] text-zinc-600 dark:text-zinc-400 hover:text-black dark:hover:text-white font-medium hover:underline flex items-center space-x-1"
             >
               <HelpCircle className="w-3.5 h-3.5" />
               <span>{showCodeGuide ? 'Hide Setup' : 'How to Setup'}</span>
@@ -268,7 +381,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {/* Webhook URL Input */}
           <div>
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
               Google Apps Script Web App URL
             </label>
             <div className="relative">
@@ -277,18 +390,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 placeholder="https://script.google.com/macros/s/.../exec"
                 value={scriptUrl}
                 onChange={(e) => setScriptUrl(e.target.value)}
-                className="w-full liquid-glass-input rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 font-mono"
+                className="w-full bg-zinc-100/80 dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-black dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 font-mono focus:outline-none focus:border-black/30 dark:focus:border-white/30"
               />
-              <Link2 className="w-4 h-4 text-slate-400 absolute right-3.5 top-3 pointer-events-none" />
+              <Link2 className="w-4 h-4 text-zinc-400 dark:text-zinc-500 absolute right-3.5 top-3 pointer-events-none" />
             </div>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-              Every captured lead is automatically posted and appended to this spreadsheet webhook.
+            <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1">
+              Captured leads and status modifications are forwarded in real-time to this spreadsheet webhook.
             </p>
           </div>
 
           {/* Target Sheet Browser Link */}
           <div>
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
               Google Sheet Direct Link
             </label>
             <input
@@ -296,7 +409,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               placeholder="https://docs.google.com/spreadsheets/d/..."
               value={sheetUrl}
               onChange={(e) => setSheetUrl(e.target.value)}
-              className="w-full liquid-glass-input rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400"
+              className="w-full bg-zinc-100/80 dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-black dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-black/30 dark:focus:border-white/30"
             />
           </div>
 
@@ -306,9 +419,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               href={sheetUrl || 'https://docs.google.com/spreadsheets'}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-semibold text-xs py-2.5 px-3 rounded-2xl border border-emerald-500/30 flex items-center justify-center space-x-1.5 transition-colors active:scale-95"
+              onClick={() => triggerHaptic('light')}
+              className="flex-1 bg-zinc-100 dark:bg-[#2C2C2E] hover:bg-zinc-200 dark:hover:bg-[#3A3A3C] text-black dark:text-white font-semibold text-xs py-2.5 px-3 rounded-xl border border-black/5 dark:border-white/10 flex items-center justify-center space-x-1.5 transition-colors active:scale-95"
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+              <FileSpreadsheet className="w-4 h-4" />
               <span>Open Sheet in Drive</span>
               <ExternalLink className="w-3.5 h-3.5 opacity-70" />
             </a>
@@ -317,7 +431,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               type="button"
               onClick={handleTestWebhook}
               disabled={isTesting || !scriptUrl.trim()}
-              className="flex-1 liquid-glass hover:bg-slate-200/50 dark:hover:bg-white/10 text-slate-800 dark:text-slate-200 font-semibold text-xs py-2.5 px-3 rounded-2xl border border-white/60 dark:border-white/15 flex items-center justify-center space-x-1.5 transition-colors disabled:opacity-50 active:scale-95"
+              className="flex-1 bg-zinc-100 dark:bg-[#2C2C2E] hover:bg-zinc-200 dark:hover:bg-[#3A3A3C] text-black dark:text-white font-semibold text-xs py-2.5 px-3 rounded-xl border border-black/5 dark:border-white/10 flex items-center justify-center space-x-1.5 transition-colors disabled:opacity-50 active:scale-95"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
               <span>{isTesting ? 'Testing...' : 'Test Connection'}</span>
@@ -329,16 +443,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <motion.div
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`rounded-2xl p-3 text-xs flex items-start space-x-2 border ${
+              className={`rounded-xl p-3 text-xs flex items-start space-x-2 border ${
                 testResult.success
-                  ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-500/30'
-                  : 'bg-rose-500/15 text-rose-800 dark:text-rose-200 border-rose-500/30'
+                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border-zinc-300 dark:border-zinc-700'
+                  : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-800'
               }`}
             >
               {testResult.success ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
               )}
               <span className="leading-relaxed">{testResult.message}</span>
             </motion.div>
@@ -349,21 +463,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
-              className="mt-3 pt-3 border-t border-black/[0.05] dark:border-white/[0.08] space-y-2 text-xs text-slate-600 dark:text-slate-400"
+              className="mt-3 pt-3 border-t border-black/5 dark:border-white/10 space-y-2 text-xs text-zinc-600 dark:text-zinc-400"
             >
-              <p className="font-semibold text-slate-800 dark:text-slate-200">Quick 2-Minute Setup:</p>
-              <ol className="list-decimal list-inside space-y-1 text-slate-500 dark:text-slate-400">
-                <li>Create a Google Sheet and click <b>Extensions &gt; Apps Script</b>.</li>
-                <li>Paste the snippet below and click <b>Deploy &gt; New deployment</b>.</li>
+              <p className="font-semibold text-black dark:text-white">Quick Setup (With Status Updates):</p>
+              <ol className="list-decimal list-inside space-y-1 text-zinc-500 dark:text-zinc-400">
+                <li>Open your Google Sheet and click <b>Extensions &gt; Apps Script</b>.</li>
+                <li>Paste the script below into <code>Code.gs</code> and click <b>Save</b>.</li>
+                <li>Click <b>Deploy &gt; New deployment</b> (or Manage deployments &gt; New version if updating).</li>
                 <li>Choose <b>Web app</b>, set <i>Who has access</i> to <b>Anyone</b>.</li>
                 <li>Copy the Web App URL and paste it above!</li>
               </ol>
 
-              <div className="relative bg-slate-900/95 dark:bg-black/90 text-slate-200 p-3 rounded-2xl text-[10px] font-mono overflow-x-auto border border-white/10">
+              <div className="relative bg-zinc-950 text-zinc-200 p-3 rounded-xl text-[10px] font-mono overflow-x-auto border border-zinc-800">
                 <button
                   type="button"
                   onClick={handleCopyCode}
-                  className="absolute right-2.5 top-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded-md flex items-center space-x-1"
+                  className="absolute right-2.5 top-2.5 bg-zinc-800 hover:bg-zinc-700 text-white px-2 py-1 rounded-md flex items-center space-x-1"
                 >
                   {copiedCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
                   <span>{copiedCode ? 'Copied' : 'Copy'}</span>
@@ -374,55 +489,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
         </div>
 
-        {/* GITHUB & VERCEL HOSTING GUIDE CARD */}
-        <div className="liquid-glass-card p-4 space-y-3">
-          <div className="flex items-center space-x-2 text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
-            <Globe className="w-4 h-4 text-blue-500" />
+        {/* GITHUB & VERCEL HOSTING CARD */}
+        <div className="bg-white dark:bg-[#1C1C1E] border border-black/5 dark:border-white/10 rounded-2xl p-4 space-y-3 shadow-xs transition-colors duration-250">
+          <div className="flex items-center space-x-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">
+            <Globe className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
             <span>GitHub & Vercel Deployment</span>
           </div>
 
-          <div className="space-y-2 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-            <div className="liquid-glass p-3 rounded-2xl border border-white/40 dark:border-white/10 space-y-1.5">
-              <div className="flex items-center space-x-1.5 font-semibold text-slate-800 dark:text-slate-200">
+          <div className="space-y-2 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+            <div className="bg-zinc-50 dark:bg-[#242426] p-3 rounded-xl border border-black/5 dark:border-white/10 space-y-1.5">
+              <div className="flex items-center space-x-1.5 font-semibold text-black dark:text-white">
                 <GithubIcon className="w-3.5 h-3.5" />
-                <span>1. Push to GitHub</span>
+                <span>GitHub Repository</span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Run these commands in your project terminal:
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                Connected to <code>stephkodi/lead-tracker</code> on branch <code>main</code>.
               </p>
-              <div className="bg-slate-900 text-slate-200 p-2.5 rounded-xl font-mono text-[10px] space-y-1 select-text">
-                <div>git init</div>
-                <div>git add .</div>
-                <div>git commit -m &quot;feat: iOS 26 liquid glass lead tracker&quot;</div>
-                <div>git remote add origin https://github.com/YOUR_USER/lead-tracker.git</div>
-                <div>git push -u origin main</div>
-              </div>
             </div>
 
-            <div className="liquid-glass p-3 rounded-2xl border border-white/40 dark:border-white/10 space-y-1.5">
-              <div className="flex items-center space-x-1.5 font-semibold text-slate-800 dark:text-slate-200">
+            <div className="bg-zinc-50 dark:bg-[#242426] p-3 rounded-xl border border-black/5 dark:border-white/10 space-y-1.5">
+              <div className="flex items-center space-x-1.5 font-semibold text-black dark:text-white">
                 <Globe className="w-3.5 h-3.5" />
-                <span>2. Host on Vercel</span>
+                <span>Vercel Live URL</span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Go to <a href="https://vercel.com/new" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline font-medium">vercel.com/new</a> and import your GitHub repository. It works zero-config with Next.js 16!
-              </p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                Optional: Add <code>GOOGLE_SHEETS_WEBHOOK_URL</code> to Vercel Environment Variables.
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                Live at <a href="https://lead-tracker-mu-five.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-black dark:text-white underline font-medium">lead-tracker-mu-five.vercel.app</a>.
               </p>
             </div>
           </div>
         </div>
 
         {/* GENERAL PREFERENCES CARD */}
-        <div className="liquid-glass-card p-4 space-y-3">
-          <div className="flex items-center space-x-2 text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
-            <Settings className="w-4 h-4 text-blue-500" />
+        <div className="bg-white dark:bg-[#1C1C1E] border border-black/5 dark:border-white/10 rounded-2xl p-4 space-y-3 shadow-xs transition-colors duration-250">
+          <div className="flex items-center space-x-2 text-xs font-semibold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider">
+            <Settings className="w-4 h-4 text-zinc-600 dark:text-zinc-300" />
             <span>App Preferences</span>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
               Dispatch Organization / Brand Name
             </label>
             <input
@@ -430,19 +535,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               placeholder="e.g. Service Pro Logistics"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              className="w-full liquid-glass-input rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400"
+              className="w-full bg-zinc-100/80 dark:bg-[#2C2C2E] border border-black/5 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-black dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-black/30 dark:focus:border-white/30"
             />
           </div>
 
-          <div className="pt-2 flex items-center justify-between border-t border-black/[0.05] dark:border-white/[0.08]">
+          <div className="pt-2 flex items-center justify-between border-t border-black/5 dark:border-white/10">
             <div>
-              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Reset Demo Vendors</p>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500">Restore original pre-seeded partners</p>
+              <p className="text-xs font-semibold text-black dark:text-white">Reset Demo Vendors</p>
+              <p className="text-[11px] text-zinc-400 dark:text-zinc-500">Restore original pre-seeded partners</p>
             </div>
             <button
               type="button"
               onClick={handleResetSampleData}
-              className="text-xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white liquid-glass hover:bg-slate-200/50 dark:hover:bg-white/10 px-3 py-1.5 rounded-xl font-medium flex items-center space-x-1 transition-colors active:scale-95"
+              className="text-xs text-zinc-700 dark:text-zinc-300 hover:text-black dark:hover:text-white bg-zinc-100 dark:bg-[#2C2C2E] hover:bg-zinc-200 dark:hover:bg-[#38383A] px-3 py-1.5 rounded-xl font-medium flex items-center space-x-1 transition-colors active:scale-95 border border-black/5 dark:border-white/10"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset</span>
@@ -450,12 +555,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
 
-        {/* Save Button */}
+        {/* Save Button: Classic Apple Monochrome Button */}
         <div className="relative">
           <motion.button
             type="submit"
-            whileTap={{ scale: 0.97 }}
-            className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:brightness-110 text-white font-semibold text-sm py-3.5 px-4 rounded-2xl shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center space-x-2"
+            whileTap={{ scale: 0.98 }}
+            className="w-full bg-black dark:bg-white hover:opacity-90 active:scale-[0.98] text-white dark:text-black font-semibold text-sm py-3.5 px-4 rounded-2xl shadow-xs transition-all flex items-center justify-center space-x-2 select-none"
           >
             <span>Save Settings</span>
           </motion.button>
@@ -467,7 +572,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
-                className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-xs font-medium px-4 py-1.5 rounded-full shadow-lg flex items-center space-x-1.5 pointer-events-none backdrop-blur-md"
+                className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black dark:bg-white text-white dark:text-black text-xs font-medium px-4 py-1.5 rounded-full shadow-lg flex items-center space-x-1.5 pointer-events-none"
               >
                 <Check className="w-3.5 h-3.5 text-emerald-400 dark:text-emerald-600" />
                 <span>Settings Saved!</span>
