@@ -29,6 +29,7 @@ interface WhatsAppDispatchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onViewHistory?: () => void;
+  onLeadDispatched?: (leadId: string, vendorName?: string) => void;
 }
 
 export const WhatsAppDispatchModal: React.FC<WhatsAppDispatchModalProps> = ({
@@ -37,6 +38,7 @@ export const WhatsAppDispatchModal: React.FC<WhatsAppDispatchModalProps> = ({
   isOpen,
   onClose,
   onViewHistory,
+  onLeadDispatched,
 }) => {
   const [customSelectedVendorId, setCustomSelectedVendorId] = useState<string | null>(null);
   const [customPhone, setCustomPhone] = useState<string>('');
@@ -86,14 +88,18 @@ export const WhatsAppDispatchModal: React.FC<WhatsAppDispatchModalProps> = ({
   const handleSendWhatsApp = () => {
     if (!effectivePhone.trim()) return;
 
-    // Update lead status in localStorage
+    // Update lead status in localStorage and notify parent
     if (lead) {
+      const vendorName = selectedVendor?.name || customPhone;
       updateStoredLead(lead.id, {
         status: 'dispatched',
         assignedVendorId: selectedVendor?.id,
-        assignedVendorName: selectedVendor?.name || customPhone,
+        assignedVendorName: vendorName,
         dispatchedAt: new Date().toISOString(),
       });
+      if (onLeadDispatched) {
+        onLeadDispatched(lead.id, vendorName);
+      }
     }
 
     // Open WhatsApp link in new tab or native app

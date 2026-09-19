@@ -5,6 +5,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const {
+      action = 'create',
+      id,
+      leadId,
+      status,
       date,
       customerName,
       phone,
@@ -16,7 +20,82 @@ export async function POST(request: NextRequest) {
       googleScriptUrl,
     } = body;
 
-    // Validate required fields
+    const targetScriptUrl = googleScriptUrl || process.env.GOOGLE_SHEETS_WEBHOOK_URL;
+
+    // --- HANDLE LEAD STATUS UPDATE ---
+    if (action === 'update_status') {
+      const effectiveId = leadId || id;
+      if (!effectiveId || !status) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Missing required parameters: leadId and status are mandatory for status updates.',
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!targetScriptUrl) {
+        return NextResponse.json(
+          {
+            success: true,
+            syncedToSheet: false,
+            message: 'Status updated locally. (Connect Google Sheets in Settings to sync remotely).',
+            data: { leadId: effectiveId, status },
+          },
+          { status: 200 }
+        );
+      }
+
+      try {
+        const gasResponse = await fetch(targetScriptUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'update_status',
+            leadId: effectiveId,
+            status,
+            phone: phone || undefined,
+            vendorAssigned: vendorAssigned || undefined,
+            timestamp: new Date().toISOString(),
+          }),
+          redirect: 'follow',
+        });
+
+        const responseText = await gasResponse.text();
+        let responseJson: Record<string, unknown> = {};
+        try {
+          responseJson = JSON.parse(responseText);
+        } catch {
+          responseJson = { rawResponse: responseText };
+        }
+
+        return NextResponse.json(
+          {
+            success: true,
+            syncedToSheet: gasResponse.ok,
+            message: `Lead status synced to Google Sheet as '${status}'!`,
+            gasResponse: responseJson,
+          },
+          { status: 200 }
+        );
+      } catch (err: unknown) {
+        console.error('Error forwarding status update to Google Sheets:', err);
+        return NextResponse.json(
+          {
+            success: true,
+            syncedToSheet: false,
+            warning: 'Status updated locally, but Google Sheets update failed.',
+            error: err instanceof Error ? err.message : 'Unknown network error',
+          },
+          { status: 200 }
+        );
+      }
+    }
+
+    // --- HANDLE NEW LEAD CREATION ---
     if (!date || !customerName || !phone) {
       return NextResponse.json(
         {
@@ -27,7 +106,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const effectiveLeadId = leadId || id || `lead-${Date.now()}`;
+    const effectiveStatus = status || 'Captured';
+
     const leadPayload = {
+      action: 'create',
+      leadId: effectiveLeadId,
       timestamp: new Date().toISOString(),
       date,
       customerName,
@@ -36,14 +120,11 @@ export async function POST(request: NextRequest) {
       location: location || '',
       services: Array.isArray(services) ? services.join(', ') : services || 'General',
       requirements: requirements || '',
+      status: effectiveStatus,
       vendorAssigned: vendorAssigned || 'Unassigned',
     };
 
-    // Determine target webhook URL (request payload or environment variable)
-    const targetScriptUrl = googleScriptUrl || process.env.GOOGLE_SHEETS_WEBHOOK_URL;
-
     if (!targetScriptUrl) {
-      // Graceful fallback for local development or initial setup
       return NextResponse.json(
         {
           success: true,
@@ -104,7 +185,7 @@ export async function POST(request: NextRequest) {
         {
           success: true,
           syncedToSheet: false,
-          warning: 'Lead saved, but Google Sheets webhook was unreachable or blocked by CORS.',
+          warning: 'Lead saved locally, but Google Sheets webhook was unreachable.',
           error: networkError instanceof Error ? networkError.message : 'Unknown network error',
           data: leadPayload,
         },

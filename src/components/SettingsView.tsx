@@ -59,13 +59,55 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
 
   const sampleCodeSnippet = `function doPost(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(["Timestamp", "Date", "Customer Name", "Phone", "Email", "Location", "Services", "Requirements", "Assigned Vendor"]);
+  var lock = LockService.getScriptLock();
+  lock.tryLock(30000);
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var headers = ["Lead ID", "Timestamp", "Date", "Customer Name", "Phone", "Email", "Location", "Services", "Requirements", "Status", "Assigned Vendor"];
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(headers);
+    }
+    var data = JSON.parse(e.postData.contents);
+    var action = data.action || "create";
+
+    // 1. UPDATE EXISTING LEAD STATUS
+    if (action === "update_status") {
+      var leadId = data.leadId;
+      var newStatus = data.status;
+      var values = sheet.getDataRange().getValues();
+      var idCol = values[0].indexOf("Lead ID");
+      var phoneCol = values[0].indexOf("Phone");
+      var statusCol = values[0].indexOf("Status");
+      var vendorCol = values[0].indexOf("Assigned Vendor");
+      for (var i = 1; i < values.length; i++) {
+        var matchById = (idCol !== -1 && String(values[i][idCol]) === String(leadId));
+        var matchByPhone = (phoneCol !== -1 && data.phone && String(values[i][phoneCol]) === String(data.phone));
+        if (matchById || matchByPhone) {
+          if (statusCol !== -1) sheet.getRange(i + 1, statusCol + 1).setValue(newStatus);
+          if (data.vendorAssigned && vendorCol !== -1) sheet.getRange(i + 1, vendorCol + 1).setValue(data.vendorAssigned);
+          return ContentService.createTextOutput(JSON.stringify({ status: "success", updated: true, newStatus: newStatus })).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+    }
+
+    // 2. APPEND NEW LEAD
+    sheet.appendRow([
+      data.leadId || ("lead-" + Date.now()),
+      data.timestamp || new Date().toISOString(),
+      data.date,
+      data.customerName,
+      data.phone,
+      data.email || "",
+      data.location || "",
+      data.services || "",
+      data.requirements || "",
+      data.status || "Captured",
+      data.vendorAssigned || "Unassigned"
+    ]);
+    return ContentService.createTextOutput(JSON.stringify({ status: "success" })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
   }
-  var data = JSON.parse(e.postData.contents);
-  sheet.appendRow([data.timestamp, data.date, data.customerName, data.phone, data.email, data.location, data.services, data.requirements, data.vendorAssigned]);
-  return ContentService.createTextOutput(JSON.stringify({ status: "success" })).setMimeType(ContentService.MimeType.JSON);
 }`;
 
   const handleSave = (e?: React.FormEvent) => {

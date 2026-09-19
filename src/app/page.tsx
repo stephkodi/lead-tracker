@@ -79,10 +79,55 @@ export default function Home() {
     setIsDispatchModalOpen(true);
   };
 
-  const handleUpdateLeadStatus = (leadId: string, status: LeadStatus) => {
-    const updated = leads.map((l) => (l.id === leadId ? { ...l, status } : l));
-    setLeads(updated);
-    updateStoredLead(leadId, { status });
+  const handleUpdateLeadStatus = async (
+    leadId: string,
+    status: LeadStatus,
+    vendorAssigned?: string
+  ) => {
+    // 1. Optimistic UI update & localStorage
+    setLeads((prev) =>
+      prev.map((l) =>
+        l.id === leadId
+          ? {
+              ...l,
+              status,
+              ...(vendorAssigned ? { assignedVendorName: vendorAssigned } : {}),
+            }
+          : l
+      )
+    );
+
+    updateStoredLead(leadId, {
+      status,
+      ...(vendorAssigned ? { assignedVendorName: vendorAssigned } : {}),
+    });
+
+    // 2. Synchronize status change with Google Sheets
+    const targetLead = leads.find((l) => l.id === leadId);
+    try {
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_status',
+          leadId,
+          status,
+          phone: targetLead?.phone,
+          vendorAssigned: vendorAssigned || targetLead?.assignedVendorName,
+          googleScriptUrl: settings.googleScriptUrl || undefined,
+        }),
+      });
+
+      const result = await response.json();
+      if (response.ok && result.syncedToSheet) {
+        setLeads((prev) =>
+          prev.map((l) => (l.id === leadId ? { ...l, sheetSynced: true } : l))
+        );
+        updateStoredLead(leadId, { sheetSynced: true });
+      }
+    } catch (err) {
+      console.error('Error syncing status to Google Sheets:', err);
+    }
   };
 
   return (
@@ -186,6 +231,9 @@ export default function Home() {
           isOpen={isDispatchModalOpen}
           onClose={() => setIsDispatchModalOpen(false)}
           onViewHistory={() => setCurrentTab('history')}
+          onLeadDispatched={(dispatchedLeadId, vendorName) => {
+            handleUpdateLeadStatus(dispatchedLeadId, 'dispatched', vendorName);
+          }}
         />
       </main>
     </div>

@@ -21,7 +21,7 @@ This guide explains how to connect your **Service Lead Tracker** PWA directly to
 ```javascript
 /**
  * Service Lead Tracker - Google Apps Script Webhook
- * Receives JSON payloads and automatically appends leads to the Google Sheet.
+ * Receives JSON payloads to append leads or update lead status in real-time.
  */
 
 function doPost(e) {
@@ -31,31 +31,30 @@ function doPost(e) {
 
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    
-    // Ensure header row exists if the sheet is empty
+    var headers = [
+      "Lead ID",
+      "Timestamp",
+      "Date",
+      "Customer Name",
+      "Phone",
+      "Email",
+      "Location",
+      "Services",
+      "Requirements",
+      "Status",
+      "Assigned Vendor"
+    ];
+
+    // Ensure header row exists if sheet is empty
     if (sheet.getLastRow() === 0) {
-      var headers = [
-        "Timestamp",
-        "Date of Service",
-        "Customer Name",
-        "Phone Number",
-        "Email",
-        "Location / Address",
-        "Services Required",
-        "Detailed Requirements",
-        "Assigned Vendor"
-      ];
       sheet.appendRow(headers);
-      
-      // Format header row with clean styling
       var headerRange = sheet.getRange(1, 1, 1, headers.length);
-      headerRange.setBackground("#0F172A"); // Dark slate
+      headerRange.setBackground("#0F172A");
       headerRange.setFontColor("#FFFFFF");
       headerRange.setFontWeight("bold");
       sheet.setFrozenRows(1);
     }
 
-    // Parse incoming JSON payload
     var data = {};
     if (e.postData && e.postData.contents) {
       data = JSON.parse(e.postData.contents);
@@ -63,8 +62,47 @@ function doPost(e) {
       data = e.parameter || {};
     }
 
-    // Build row values
+    var action = data.action || "create";
+
+    // 1. UPDATE EXISTING LEAD STATUS
+    if (action === "update_status") {
+      var leadId = data.leadId;
+      var newStatus = data.status;
+      var values = sheet.getDataRange().getValues();
+      var idCol = values[0].indexOf("Lead ID");
+      var phoneCol = values[0].indexOf("Phone");
+      var statusCol = values[0].indexOf("Status");
+      var vendorCol = values[0].indexOf("Assigned Vendor");
+
+      for (var i = 1; i < values.length; i++) {
+        var matchById = (idCol !== -1 && String(values[i][idCol]) === String(leadId));
+        var matchByPhone = (phoneCol !== -1 && data.phone && String(values[i][phoneCol]) === String(data.phone));
+
+        if (matchById || matchByPhone) {
+          if (statusCol !== -1) {
+            sheet.getRange(i + 1, statusCol + 1).setValue(newStatus);
+          }
+          if (data.vendorAssigned && vendorCol !== -1) {
+            sheet.getRange(i + 1, vendorCol + 1).setValue(data.vendorAssigned);
+          }
+          return ContentService.createTextOutput(JSON.stringify({
+            status: "success",
+            action: "update_status",
+            updatedRow: i + 1,
+            newStatus: newStatus
+          })).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "not_found",
+        message: "Lead ID not found to update"
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 2. APPEND NEW LEAD
     var newRow = [
+      data.leadId || ("lead-" + Date.now()),
       data.timestamp || new Date().toISOString(),
       data.date || "",
       data.customerName || "",
@@ -73,6 +111,7 @@ function doPost(e) {
       data.location || "",
       data.services || "",
       data.requirements || "",
+      data.status || "Captured",
       data.vendorAssigned || "Unassigned"
     ];
 
@@ -80,6 +119,7 @@ function doPost(e) {
 
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
+      action: "create",
       message: "Lead successfully logged",
       row: sheet.getLastRow()
     })).setMimeType(ContentService.MimeType.JSON);
@@ -107,10 +147,10 @@ function doGet(e) {
 
 ## 3. Deploy as a Web App
 
-1. In the top right corner of the Apps Script editor, click **Deploy** > **New deployment**.
+1. In the top right corner of the Apps Script editor, click **Deploy** > **New deployment** (or **Manage deployments** > edit to create a new version if updating).
 2. Click the gear icon (`⚙`) next to "Select type" and select **Web app**.
 3. Configure the deployment settings:
-   - **Description**: `v1 Production Webhook`
+   - **Description**: `v2 Status Sync Webhook`
    - **Execute as**: `Me (your-email@gmail.com)`
    - **Who has access**: `Anyone` *(Crucial: allows the Next.js backend to post leads without complex OAuth tokens)*.
 4. Click **Deploy**.
@@ -137,12 +177,14 @@ function doGet(e) {
 
 | Column # | Header Name | Description |
 |---|---|---|
-| A | Timestamp | ISO 8601 server logging timestamp |
-| B | Date of Service | Selected date of service request |
-| C | Customer Name | Name of client or company |
-| D | Phone Number | Contact number |
-| E | Email | Customer email (optional) |
-| F | Location / Address | Service address or location |
-| G | Services Required | Comma-separated list of selected badges |
-| H | Detailed Requirements | Scope of work / project notes |
-| I | Assigned Vendor | Selected vendor when dispatched |
+| A | Lead ID | Unique ID (e.g., `lead-17739...`) for syncing status updates |
+| B | Timestamp | ISO 8601 creation timestamp |
+| C | Date | Date of service requested |
+| D | Customer Name | Name of customer |
+| E | Phone | Customer phone number |
+| F | Email | Customer email (optional) |
+| G | Location | Service location / address |
+| H | Services | Comma-separated list of services |
+| I | Requirements | Scope of work / project details |
+| J | Status | Lead status (`Captured`, `Dispatched`, `In Progress`, `Completed`, `Cancelled`) |
+| K | Assigned Vendor | Name or number of assigned vendor |
