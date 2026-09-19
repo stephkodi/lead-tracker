@@ -216,12 +216,12 @@ export const VendorDirectory: React.FC<VendorDirectoryProps> = ({
 
                   {/* Quick Action Icons */}
                   <div className="flex items-center space-x-1.5">
-                    {/* Direct WhatsApp Chat */}
+                    {/* Direct WhatsApp Business Chat */}
                     <a
                       href={directWaLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="Open WhatsApp Chat"
+                      title="Open WhatsApp Business Chat"
                       className="w-8 h-8 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 text-[#25D366] dark:text-emerald-400 flex items-center justify-center transition-colors active:scale-90 border border-emerald-500/20"
                     >
                       <MessageCircle className="w-4 h-4" />

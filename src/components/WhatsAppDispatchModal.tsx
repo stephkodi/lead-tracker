@@ -154,7 +154,7 @@ export const WhatsAppDispatchModal: React.FC<WhatsAppDispatchModalProps> = ({
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   {lead.sheetSynced
                     ? '✓ Synced to Google Sheets'
-                    : 'Ready for instant WhatsApp dispatch'}
+                    : 'Ready for WhatsApp Business dispatch'}
                 </p>
               </div>
             </div>
@@ -259,7 +259,7 @@ export const WhatsAppDispatchModal: React.FC<WhatsAppDispatchModalProps> = ({
 
             {/* Action Buttons */}
             <div className="space-y-2.5 pt-1">
-              {/* Primary: Send via WhatsApp */}
+              {/* Primary: Send via WhatsApp Business */}
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.97 }}
@@ -276,7 +276,7 @@ export const WhatsAppDispatchModal: React.FC<WhatsAppDispatchModalProps> = ({
                 >
                   <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2M12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.15 12.04 20.15C10.56 20.15 9.11 19.76 7.85 19.01L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 14.99 3.8 13.47 3.8 11.91C3.81 7.37 7.5 3.67 12.05 3.67M9.53 7.37C9.37 7.37 9.1 7.43 8.88 7.68C8.65 7.92 8.02 8.51 8.02 9.72C8.02 10.93 8.91 12.09 9.03 12.25C9.15 12.41 10.77 14.9 13.25 15.97C13.84 16.23 14.3 16.38 14.66 16.5C15.26 16.69 15.8 16.66 16.24 16.6C16.73 16.53 17.74 15.99 17.95 15.4C18.16 14.81 18.16 14.3 18.1 14.2C18.04 14.1 17.88 14.04 17.64 13.92C17.4 13.8 16.22 13.22 16 13.14C15.78 13.06 15.62 13.02 15.46 13.26C15.29 13.51 14.82 14.06 14.67 14.22C14.53 14.38 14.39 14.4 14.15 14.28C13.91 14.16 12.89 13.83 11.69 12.76C10.75 11.92 10.12 10.89 9.94 10.59C9.76 10.29 9.92 10.13 10.04 10.01C10.15 9.9 10.29 9.72 10.42 9.57C10.55 9.42 10.59 9.3 10.68 9.12C10.76 8.94 10.72 8.78 10.66 8.66C10.6 8.54 10.12 7.37 9.92 6.89C9.72 6.42 9.52 6.48 9.37 6.47H8.97L9.53 7.37Z" />
                 </svg>
-                <span>Send via WhatsApp</span>
+                <span>Send via WhatsApp Business</span>
                 <ExternalLink className="w-4 h-4 ml-1 opacity-80" />
               </motion.button>
 
