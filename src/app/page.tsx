@@ -10,12 +10,13 @@ import { VendorDirectory } from '@/components/VendorDirectory';
 import { SettingsView } from '@/components/SettingsView';
 import { LeadHistoryView } from '@/components/LeadHistoryView';
 import { WhatsAppDispatchModal } from '@/components/WhatsAppDispatchModal';
-import { ServiceLead, Vendor, AppSettings } from '@/types';
+import { ServiceLead, Vendor, AppSettings, LeadStatus } from '@/types';
 import {
   getStoredVendors,
   saveStoredVendors,
   getStoredLeads,
   getStoredSettings,
+  updateStoredLead,
 } from '@/lib/storage';
 
 export default function Home() {
@@ -76,6 +77,12 @@ export default function Home() {
   const handleSelectLeadForDispatch = (lead: ServiceLead) => {
     setDispatchLead(lead);
     setIsDispatchModalOpen(true);
+  };
+
+  const handleUpdateLeadStatus = (leadId: string, status: LeadStatus) => {
+    const updated = leads.map((l) => (l.id === leadId ? { ...l, status } : l));
+    setLeads(updated);
+    updateStoredLead(leadId, { status });
   };
 
   return (
@@ -142,6 +149,7 @@ export default function Home() {
                 <LeadHistoryView
                   leads={leads}
                   onSelectLeadForDispatch={handleSelectLeadForDispatch}
+                  onUpdateLeadStatus={handleUpdateLeadStatus}
                 />
               </motion.div>
             )}

@@ -6,6 +6,13 @@ export type ServiceCategory =
   | 'Painting'
   | 'Other';
 
+export type LeadStatus =
+  | 'new'
+  | 'dispatched'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled';
+
 export interface ServiceLead {
   id: string;
   date: string;
@@ -15,7 +22,7 @@ export interface ServiceLead {
   location: string;
   services: ServiceCategory[];
   requirements: string;
-  status: 'new' | 'dispatched' | 'completed';
+  status: LeadStatus;
   assignedVendorId?: string;
   assignedVendorName?: string;
   dispatchedAt?: string;
