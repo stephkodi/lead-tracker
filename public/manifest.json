@@ -1,0 +1,19 @@
+{
+  "name": "Service Lead Tracker",
+  "short_name": "LeadTracker",
+  "description": "Mobile-first service lead capture and WhatsApp vendor dispatch PWA",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f2f7",
+  "theme_color": "#ffffff",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0F172A" flood-opacity="0.18" />
+    </filter>
+  </defs>
+
+  <!-- iOS App Icon Squircle Background -->
+  <rect x="32" y="32" width="448" height="448" rx="100" fill="url(#bgGrad)" filter="url(#shadow)" />
+  
+  <!-- Subtle Top Highlight / Gloss -->
+  <rect x="32" y="32" width="448" height="224" rx="100" fill="url(#glowGrad)" />
+
+  <!-- Center Icon: Dispatch Bolt & Clipboard Overlay -->
+  <g transform="translate(136, 126)" fill="none" stroke="#FFFFFF" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Clipboard Outline -->
+    <rect x="15" y="45" width="210" height="235" rx="28" stroke="#FFFFFF" stroke-width="24" fill="rgba(255,255,255,0.08)" />
+    <!-- Clip Top -->
+    <path d="M75 45 V 30 A 12 12 0 0 1 87 18 H 153 A 12 12 0 0 1 165 30 V 45" stroke="#FFFFFF" stroke-width="20" fill="#2563EB" />
+    
+    <!-- Lightning Bolt / Quick Dispatch Symbol -->
+    <path d="M125 95 L 90 165 H 135 L 115 225 L 160 145 H 120 Z" fill="#FACC15" stroke="#F59E0B" stroke-width="8" />
+  </g>
+
+  <!-- WhatsApp Emerald Badge in Corner -->
+  <g transform="translate(330, 330)">
+    <circle cx="50" cy="50" r="46" fill="#10B981" stroke="#FFFFFF" stroke-width="8" />
+    <!-- Chat Bubble / Phone -->
+    <path d="M36 34 C 44 26 56 26 64 34 L 67 37 C 71 41 71 47 67 51 L 62 56 C 60 58 57 58 54 57 C 49 54 44 49 41 44 C 40 41 40 38 42 36 L 47 31" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>
